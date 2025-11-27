@@ -19,7 +19,7 @@ import (
 type Config struct {
 	// Level 日志级别: DEBUG, INFO, WARN, ERROR
 	Level string
-	// Format 输出格式: json, text
+	// Format 输出格式: json, text, color
 	Format string
 	// Output 输出目标: stdout, stderr, 或文件路径
 	Output string
