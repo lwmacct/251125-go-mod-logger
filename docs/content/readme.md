@@ -7,6 +7,7 @@
 - 支持多种输出格式：JSON、Text、Colored（彩色终端）
 - 灵活的日志级别控制（DEBUG、INFO、WARN、ERROR）
 - 多种时间格式配置
+- 环境自动检测（开发/生产环境智能默认值）
 - Context 集成，支持请求链路追踪
 - 彩色 Handler 支持 JSON/map/struct 自动平铺
 - WithGroup 分组支持（嵌套分组自动添加前缀）
@@ -15,41 +16,83 @@
 
 ## 快速开始
 
+### 初始化方式
+
+```go
+// 方式一：自动检测环境（推荐）
+// IS_SANDBOX=1 时使用开发配置，否则使用生产配置
+logger.InitAuto()
+
+// 方式二：从环境变量初始化（固定默认值）
+logger.InitEnv()
+
+// 方式三：手动配置
+logger.InitCfg(&logger.Config{
+    Level:  "DEBUG",
+    Format: "color",
+})
+```
+
 ### 基础用法
 
 ```go
 package main
 
 import (
-    "github.com/lwmacct/250901-m-nbwb/internal/infrastructure/logger"
+    "log/slog"
+    "github.com/lwmacct/251125-go-mod-logger/pkg/logger"
 )
 
 func main() {
-    // 使用默认配置初始化
-    logger.Init(nil)
+    // 自动检测环境初始化
+    if err := logger.InitAuto(); err != nil {
+        panic(err)
+    }
+    defer logger.Close()
 
     // 使用全局 logger
-    logger.Info("server started", "port", 8080)
-    logger.Debug("debug info", "key", "value")
-    logger.Warn("warning message")
-    logger.Error("error occurred", "error", err)
+    slog.Info("server started", "port", 8080)
+    slog.Debug("debug info", "key", "value")
+    slog.Warn("warning message")
+    slog.Error("error occurred", "error", err)
 }
 ```
 
-### 从环境变量初始化
+## 初始化 API
+
+### InitAuto - 自动检测环境
+
+根据 `IS_SANDBOX` 环境变量自动选择开发或生产配置：
+
+| 配置项         | 开发环境 (IS_SANDBOX=1) | 生产环境       |
+|----------------|-------------------------|----------------|
+| LOG_LEVEL      | DEBUG                   | INFO           |
+| LOG_FORMAT     | color                   | json           |
+| LOG_ADD_SOURCE | true                    | false          |
+| LOG_TIME_FORMAT| time (15:04:05)         | datetime       |
+
+```go
+logger.InitAuto()
+```
+
+### InitEnv - 从环境变量初始化
+
+使用固定的默认值，适合需要明确控制的场景：
 
 ```go
 // 支持的环境变量：
-// - LOG_LEVEL: DEBUG, INFO, WARN, ERROR
-// - LOG_FORMAT: json, text, color
-// - LOG_OUTPUT: stdout, stderr, 或文件路径
-// - LOG_ADD_SOURCE: true, false
-// - LOG_TIME_FORMAT: rfc3339, rfc3339ms, unix, unixms, datetime
+// - LOG_LEVEL: DEBUG, INFO, WARN, ERROR（默认 INFO）
+// - LOG_FORMAT: json, text, color（默认 color）
+// - LOG_OUTPUT: stdout, stderr, 或文件路径（默认 stdout）
+// - LOG_ADD_SOURCE: true, false（默认 true）
+// - LOG_TIME_FORMAT: datetime, time, rfc3339, rfc3339ms（默认 datetime）
 
-logger.InitFromEnv()
+logger.InitEnv()
 ```
 
-### 自定义配置
+### InitCfg - 手动配置
+
+完全控制所有配置项：
 
 ```go
 cfg := &logger.Config{
@@ -58,8 +101,9 @@ cfg := &logger.Config{
     Output:     "stdout",      // stdout, stderr, /path/to/file.log
     AddSource:  true,          // 添加源码位置
     TimeFormat: "rfc3339ms",   // 时间格式
+    Timezone:   "Asia/Shanghai",
 }
-logger.Init(cfg)
+logger.InitCfg(cfg)
 ```
 
 ## 输出格式
@@ -67,27 +111,37 @@ logger.Init(cfg)
 ### JSON 格式
 
 ```json
-{ "time": "2024-01-15T10:30:00.123+08:00", "level": "INFO", "msg": "request received", "method": "GET", "path": "/api" }
+{"time":"2024-01-15T10:30:00.123+08:00","level":"INFO","msg":"request received","method":"GET","path":"/api"}
 ```
 
 ### Text 格式
 
 ```
-time=2024-01-15T10:30:00.123+08:00 level=INFO msg="request received" method=GET path=/api
+time="2024-01-15 10:30:00" level=INFO msg="request received" method=GET path=/api
 ```
 
 ### Colored 格式（终端）
 
 ```json
-{ "time": "2024-01-15 10:30:00.123", "level": "INFO", "msg": "request received", "method": "GET", "path": "/api" }
+{"time":"10:30:00","level":"INFO","msg":"request received","method":"GET","path":"/api"}
 ```
 
 带有颜色高亮：
-
 - DEBUG: 蓝色
 - INFO: 绿色
 - WARN: 黄色
 - ERROR: 红色
+
+## 时间格式
+
+| 格式        | 示例                            |
+| ----------- | ------------------------------- |
+| `time`      | `10:30:00`                      |
+| `timems`    | `10:30:00.123`                  |
+| `datetime`  | `2024-01-15 10:30:00`           |
+| `rfc3339`   | `2024-01-15T10:30:00+08:00`     |
+| `rfc3339ms` | `2024-01-15T10:30:00.123+08:00` |
+| 自定义      | 使用 Go 时间格式字符串           |
 
 ## 高级功能
 
@@ -95,43 +149,22 @@ time=2024-01-15T10:30:00.123+08:00 level=INFO msg="request received" method=GET 
 
 彩色 Handler 会自动将复杂类型平铺为 `key.subkey` 格式。
 
-**JSON 字符串：**
-
 ```go
-logger.Info("request", "body", `{"user":"alice","age":30}`)
+// JSON 字符串
+slog.Info("request", "body", `{"user":"alice","age":30}`)
 // 输出: {"msg":"request","body.user":"alice","body.age":"30"}
-```
 
-**map[string]any：**
-
-```go
-logger.Info("request", "data", map[string]any{"user": "bob", "active": true})
+// map[string]any
+slog.Info("request", "data", map[string]any{"user": "bob", "active": true})
 // 输出: {"msg":"request","data.user":"bob","data.active":"true"}
-```
 
-**struct：**
-
-```go
+// struct
 type User struct {
     Name string `json:"name"`
     Age  int    `json:"age"`
 }
-logger.Info("user", "info", User{Name: "charlie", Age: 30})
+slog.Info("user", "info", User{Name: "charlie", Age: 30})
 // 输出: {"msg":"user","info.name":"charlie","info.age":"30"}
-```
-
-**嵌套和数组：**
-
-```go
-logger.Info("data", "payload", `{"user":{"name":"bob"},"tags":["go","rust"]}`)
-// 输出: {"msg":"data","payload.user.name":"bob","payload.tags[0]":"go","payload.tags[1]":"rust"}
-```
-
-**slog.Group：**
-
-```go
-logger.Info("test", slog.Group("request", "method", "GET", "path", "/api"))
-// 输出: {"msg":"test","request.method":"GET","request.path":"/api"}
 ```
 
 ### Context 集成
@@ -187,24 +220,13 @@ return logger.LogError(ctx, "operation failed", err, "user_id", userID)
 return logger.LogAndWrap("fetch failed", err, "url", url)
 ```
 
-## 时间格式
-
-| 格式        | 示例                            |
-| ----------- | ------------------------------- |
-| `rfc3339`   | `2024-01-15T10:30:00+08:00`     |
-| `rfc3339ms` | `2024-01-15T10:30:00.123+08:00` |
-| `datetime`  | `2024-01-15 10:30:00`           |
-| `unix`      | `1705285800`                    |
-| `unixms`    | `1705285800123`                 |
-| `unixfloat` | `1705285800.123`                |
-
 ## 资源管理
 
 输出到文件时，应在程序退出时关闭：
 
 ```go
 func main() {
-    logger.Init(&logger.Config{
+    logger.InitCfg(&logger.Config{
         Output: "/var/log/app.log",
     })
     defer logger.Close()  // 确保文件正确关闭
@@ -213,48 +235,9 @@ func main() {
 }
 ```
 
-## 日志级别
-
-支持大小写不敏感：
-
-```go
-logger.Init(&logger.Config{Level: "debug"})  // 等同于 "DEBUG"
-logger.Init(&logger.Config{Level: "Info"})   // 等同于 "INFO"
-logger.Init(&logger.Config{Level: "WARNING"}) // 等同于 "WARN"
-```
-
-## 彩色 Handler 配置
-
-```go
-config := &logger.ColoredHandlerConfig{
-    Level:        slog.LevelInfo,
-    AddSource:    true,           // 添加源码位置
-    EnableColor:  true,           // 启用颜色
-    CallerClip:   "/app/",        // 裁剪路径前缀
-    PriorityKeys: []string{"time", "level", "msg"},  // 优先显示的字段
-    TrailingKeys: []string{"source"},                 // 末尾显示的字段
-    TimeFormat:   "datetime",     // 时间格式（见时间格式表）
-}
-handler := logger.NewColoredHandler(os.Stdout, config)
-```
-
-### WithGroup 分组
-
-```go
-// 单层分组
-log := slog.New(handler).WithGroup("request")
-log.Info("received", "method", "GET")
-// 输出: {"msg":"received","request.method":"GET"}
-
-// 嵌套分组
-log := slog.New(handler).WithGroup("http").WithGroup("request")
-log.Info("received", "method", "POST")
-// 输出: {"msg":"received","http.request.method":"POST"}
-```
-
 ## 配置验证
 
-Config 提供 `Validate()` 方法，在 `Init()` 和 `New()` 时自动调用：
+Config 提供 `Validate()` 方法，在 `InitCfg()` 和 `New()` 时自动调用：
 
 ```go
 cfg := &logger.Config{
@@ -266,13 +249,12 @@ cfg := &logger.Config{
 err := cfg.Validate()
 // err: invalid log format: "yaml", valid options: json, text, color
 
-// Init/New 也会自动验证
-err := logger.Init(cfg)
+// InitCfg/New 也会自动验证
+err := logger.InitCfg(cfg)
 // err: invalid log level: "TRACE", valid options: DEBUG, INFO, WARN, ERROR
 ```
 
 有效的配置选项：
-
 - **Level**: `DEBUG`, `INFO`, `WARN`, `WARNING`, `ERROR`（大小写不敏感）
 - **Format**: `json`, `text`, `color`, `colored`
 
@@ -282,7 +264,7 @@ err := logger.Init(cfg)
 
    ```go
    func main() {
-       logger.InitFromEnv()
+       logger.InitAuto()  // 或 InitEnv()
        defer logger.Close()
    }
    ```
@@ -291,10 +273,10 @@ err := logger.Init(cfg)
 
    ```go
    // 好
-   logger.Info("user login", "user_id", userID, "ip", ip)
+   slog.Info("user login", "user_id", userID, "ip", ip)
 
    // 避免
-   logger.Info(fmt.Sprintf("user %s login from %s", userID, ip))
+   slog.Info(fmt.Sprintf("user %s login from %s", userID, ip))
    ```
 
 3. **传递 Context**
@@ -315,5 +297,5 @@ err := logger.Init(cfg)
 ## 测试
 
 ```bash
-go test ./internal/infrastructure/logger/... -v
+go test ./pkg/logger/... -v
 ```
