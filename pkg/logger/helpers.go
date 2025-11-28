@@ -58,22 +58,42 @@ func LogAndWrap(msg string, err error, attrs ...any) error {
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// Debug 结构化调试日志的快捷方式
+// Debug 记录调试级别的结构化日志
+//
+// 用于输出详细的调试信息，生产环境通常不会开启。
+// attrs 支持键值对形式的结构化字段，例如：
+//
+//	logger.Debug("处理请求", "user_id", 123, "action", "login")
 func Debug(msg string, attrs ...any) {
 	slog.Debug(msg, attrs...)
 }
 
-// Info 结构化信息日志的快捷方式
+// Info 记录信息级别的结构化日志
+//
+// 用于记录应用的正常运行状态和重要事件。
+// 这是默认的日志级别，适合记录业务流程中的关键节点。
+//
+//	logger.Info("用户登录成功", "user_id", 123, "ip", "192.168.1.1")
 func Info(msg string, attrs ...any) {
 	slog.Info(msg, attrs...)
 }
 
-// Warn 结构化警告日志的快捷方式
+// Warn 记录警告级别的结构化日志
+//
+// 用于记录可能存在问题但不影响程序继续运行的情况。
+// 例如：资源即将耗尽、配置不推荐、性能下降等。
+//
+//	logger.Warn("连接池使用率过高", "usage", 0.95, "max", 100)
 func Warn(msg string, attrs ...any) {
 	slog.Warn(msg, attrs...)
 }
 
-// Error 结构化错误日志的快捷方式
+// Error 记录错误级别的结构化日志
+//
+// 用于记录程序运行中遇到的错误，但不一定导致程序终止。
+// 建议同时记录错误对象和相关上下文信息。
+//
+//	logger.Error("数据库连接失败", "error", err, "host", dbHost)
 func Error(msg string, attrs ...any) {
 	slog.Error(msg, attrs...)
 }

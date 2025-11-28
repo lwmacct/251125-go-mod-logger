@@ -5,15 +5,28 @@ import (
 	"strings"
 )
 
-// InitFromEnv 从环境变量初始化日志系统
+// InitFromEnv 从环境变量初始化全局日志系统
+//
+// 这是初始化日志的便捷方式，适用于通过环境变量配置应用的场景（如容器化部署）。
 //
 // 支持的环境变量：
-//   - LOG_LEVEL: 日志级别 (DEBUG, INFO, WARN, ERROR)
-//   - LOG_FORMAT: 输出格式 (json, text, color/colored)
-//   - LOG_OUTPUT: 输出目标 (stdout, stderr, 或文件路径)
-//   - LOG_ADD_SOURCE: 是否添加源代码位置 (true, false)
-//   - LOG_TIME_FORMAT: 时间格式 (rfc3339, rfc3339ms, unix, unixms, unixfloat, datetime)
-
+//   - LOG_LEVEL: 日志级别 (DEBUG, INFO, WARN, ERROR)，默认 INFO
+//   - LOG_FORMAT: 输出格式 (json, text, color/colored)，默认 color
+//   - LOG_OUTPUT: 输出目标 (stdout, stderr, 或文件路径)，默认 stdout
+//   - LOG_ADD_SOURCE: 是否添加源代码位置 (true, false)，默认 true
+//   - LOG_TIME_FORMAT: 时间格式，默认 rfc3339ms
+//
+// 时间格式可选值：datetime, rfc3339, rfc3339ms, unix, unixms, unixfloat
+//
+// 使用示例：
+//
+//	func main() {
+//	    if err := logger.InitFromEnv(); err != nil {
+//	        log.Fatalf("初始化日志失败: %v", err)
+//	    }
+//	    defer logger.Close()
+//	    // ...
+//	}
 func InitFromEnv() error {
 	cfg := &Config{
 		Level:      getEnv("LOG_LEVEL", "INFO"),

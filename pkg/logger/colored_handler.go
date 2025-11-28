@@ -37,7 +37,10 @@ var keyColors = map[string]string{
 
 const colorReset = "\033[0m"
 
-// ColoredHandlerConfig 彩色 handler 配置
+// ColoredHandlerConfig 定义彩色日志 handler 的配置选项
+//
+// 该配置控制日志的显示样式，包括颜色、字段排序和时间格式。
+// 使用 [DefaultColoredConfig] 获取推荐的默认配置。
 type ColoredHandlerConfig struct {
 	// Level 最小日志级别
 	Level slog.Level
@@ -57,7 +60,14 @@ type ColoredHandlerConfig struct {
 	Timezone string
 }
 
-// DefaultColoredConfig 返回默认配置
+// DefaultColoredConfig 返回彩色日志的默认配置
+//
+// 默认配置：
+//   - Level: INFO
+//   - AddSource: true（显示调用位置）
+//   - EnableColor: true（启用 ANSI 颜色）
+//   - PriorityKeys: time, level, msg（按顺序优先显示）
+//   - TrailingKeys: source（固定在末尾显示）
 func DefaultColoredConfig() *ColoredHandlerConfig {
 	return &ColoredHandlerConfig{
 		Level:        slog.LevelInfo,
@@ -79,7 +89,20 @@ type coloredHandler struct {
 	location *time.Location // 缓存的时区
 }
 
-// NewColoredHandler 创建彩色 handler
+// NewColoredHandler 创建支持 ANSI 颜色输出的 slog.Handler
+//
+// 该 handler 适用于终端输出，提供以下特性：
+//   - 根据日志级别着色（DEBUG 蓝色、INFO 绿色、WARN 黄色、ERROR 红色）
+//   - 自动平铺 JSON 字符串和嵌套 map
+//   - 可配置的字段显示顺序
+//   - 自动裁剪 /workspace/ 路径前缀
+//
+// 如果 config 为 nil，将使用 [DefaultColoredConfig] 返回的默认配置。
+//
+// 使用示例：
+//
+//	handler := logger.NewColoredHandler(os.Stdout, nil)
+//	log := slog.New(handler)
 func NewColoredHandler(w io.Writer, config *ColoredHandlerConfig) *coloredHandler {
 	if config == nil {
 		config = DefaultColoredConfig()
