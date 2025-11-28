@@ -41,17 +41,25 @@ func InitCfg(cfg *Config) error {
 	return nil
 }
 
-// EnvConfig 返回根据环境变量生成的默认配置
+// InitEnv 从环境变量初始化全局日志系统
 //
-// 通过 IS_SANDBOX 环境变量自动检测运行环境，返回对应的默认配置。
-// 可用于获取配置后进行修改，再传给 InitCfg。
+// 支持的环境变量：
+//   - IS_SANDBOX: 环境检测 (1/true 为开发环境，影响以下默认值)
+//   - LOG_LEVEL: 日志级别 (DEBUG, INFO, WARN, ERROR)
+//   - LOG_FORMAT: 输出格式 (json, text, color)
+//   - LOG_OUTPUT: 输出目标 (stdout, stderr, 文件路径)
+//   - LOG_ADD_SOURCE: 是否添加源代码位置 (true, false)
+//   - LOG_TIME_FORMAT: 时间格式 (datetime, time, timems, rfc3339, rfc3339ms)
 //
-// 使用示例：
+// 默认值：
 //
-//	cfg := logger.EnvConfig()
-//	cfg.Level = "WARN"  // 覆盖某个配置
-//	logger.InitCfg(cfg)
-func EnvConfig() *Config {
+//	| 配置项         | 开发环境 (IS_SANDBOX=1) | 生产环境       |
+//	|----------------|-------------------------|----------------|
+//	| LOG_LEVEL      | DEBUG                   | INFO           |
+//	| LOG_FORMAT     | color                   | json           |
+//	| LOG_ADD_SOURCE | true                    | false          |
+//	| LOG_TIME_FORMAT| time (15:04:05)         | datetime       |
+func InitEnv() error {
 	isSandbox := isSandboxEnv()
 
 	// 根据环境选择默认值
@@ -67,7 +75,7 @@ func EnvConfig() *Config {
 		defaultTimeFormat = "time"
 	}
 
-	return &Config{
+	cfg := &Config{
 		Level:      getEnv("LOG_LEVEL", defaultLevel),
 		Format:     getEnv("LOG_FORMAT", defaultFormat),
 		Output:     getEnv("LOG_OUTPUT", "stdout"),
@@ -75,13 +83,8 @@ func EnvConfig() *Config {
 		TimeFormat: getEnv("LOG_TIME_FORMAT", defaultTimeFormat),
 		Timezone:   "Asia/Shanghai",
 	}
-}
 
-// InitEnv 从环境变量初始化全局日志系统
-//
-// 等同于 InitCfg(EnvConfig())，详见 EnvConfig 文档。
-func InitEnv() error {
-	return InitCfg(EnvConfig())
+	return InitCfg(cfg)
 }
 
 // Close 关闭全局 logger 的资源（如文件）
